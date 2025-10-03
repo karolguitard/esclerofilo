@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Sitios de estudio con gráficas</title>
+
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+  <!-- Plotly -->
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+
+  <!-- Leaflet-AJAX para cargar GeoJSON externo -->
+  <script src="https://unpkg.com/leaflet-ajax"></script>
+
+  <style>
+    body { margin: 0; }
+    #map { width: 100%; height: 100vh; }
+    .chart-container { width:250px; height:200px; }
+  </style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<script>
+  const sitios = [
+    { nombre: "Aguas Claras", coord: [-32.56368, -71.4106], datos: {"Vivos": 78.8, "Muertos": 21.2} },
+    { nombre: "Lago Penuelas", coord: [-33.17277, -71.429211], datos: {"Vivos": 94.4, "Muertos": 5.6} },
+    { nombre: "Altos de Cantillana", coord: [-33.850864, -70.97967], datos: {"Vivos": 83.3, "Muertos": 16.7} },
+    { nombre: "Chicauma", coord: [-33.19391, -70.9486], datos: {"Vivos": 80.1, "Muertos": 19.9} },
+    { nombre: "Palmas de Cocalan", coord: [-34.21035, -71.12764], datos: {"Vivos": 90, "Muertos": 10} },
+    { nombre: "Rio Clarillo", coord: [-33.72811, -70.49071], datos: {"Vivos": 81.1, "Muertos": 18.9} },
+    { nombre: "PN La Campana", coord: [-33.004057, -71.126041], datos: {"Vivos": 79.9, "Muertos": 20.1} }
+  ];
+
+  // 🔹 Crear mapa Leaflet
+  const map = L.map('map').setView([-33.5, -70.9], 7);
+
+  // Mapa base ESRI
+  L.tileLayer(
+    'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', 
+    { attribution: 'Tiles © Esri' }
+  ).addTo(map);
+
+  // 🔹 Crear un grupo para los marcadores
+  const markers = [];
+
+  sitios.forEach((sitio, idx) => {
+    const marker = L.marker(sitio.coord).addTo(map);
+    markers.push(marker);
+
+    // Crear un div único para cada gráfica
+    const chartId = `chart-${idx}`;
+    const popupContent = `
+      <b>${sitio.nombre}</b><br>
+      <div id="${chartId}" class="chart-container"></div>
+    `;
+
+    marker.bindPopup(popupContent);
+
+    // Renderizar la gráfica al abrir popup
+    marker.on("popupopen", () => {
+      const categorias = Object.keys(sitio.datos);
+      const valores = Object.values(sitio.datos);
+
+      const trace = {
+        x: categorias,
+        y: valores,
+        type: 'bar',
+        marker: { color: ['#2ca02c','#1f77b4'] }
+      };
+
+      const layout = {
+        margin: {t:30, l:30, r:10, b:30},
+        title: "Categorías"
+      };
+
+      Plotly.newPlot(chartId, [trace], layout, {displayModeBar: false});
+    });
+  });
+
+  // Agrupar marcadores
+  const markerGroup = L.featureGroup(markers);
+
+  // 🔹 Cargar polígono ASP_estado
+  var asp = new L.GeoJSON.AJAX("ASP_Estado.geojson", {
+    style: {
+      color: "red",
+      weight: 2,
+      fillColor: "orange",
+      fillOpacity: 1
+    },
+    onEachFeature: function (feature, layer) {
+      layer.bindPopup("Polígono ASP_Estado");
+    }
+  }).addTo(map);
+
+  // 🔹 Ajustar la vista para mostrar polígono + puntos
+  asp.on('data:loaded', function() {
+    const combined = L.featureGroup([markerGroup, asp]);
+    map.fitBounds(combined.getBounds());
+  });
+</script>
+
+</body>
+</html>
+
